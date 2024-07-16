@@ -34,7 +34,13 @@ $progress = $jiraGraphService->getProgress($issueKey);
             padding: 20px;
             background-color: #f4f4f4;
         }
-        h1, h2 {
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        h1 {
+            margin: 0;
             color: #333;
         }
         img {
@@ -88,7 +94,7 @@ $progress = $jiraGraphService->getProgress($issueKey);
             padding: 5px 0;
             position: absolute;
             z-index: 1;
-            bottom: 125%;
+            bottom: 125%; /* Position the tooltip above the text */
             left: 50%;
             margin-left: -100px;
             opacity: 0;
@@ -97,7 +103,7 @@ $progress = $jiraGraphService->getProgress($issueKey);
         .tooltip .tooltiptext::after {
             content: '';
             position: absolute;
-            top: 100%;
+            top: 100%; /* Arrow at the bottom */
             left: 50%;
             margin-left: -5px;
             border-width: 5px;
@@ -131,13 +137,29 @@ $progress = $jiraGraphService->getProgress($issueKey);
             background-color: #f1f1f1;
             border-radius: 5px;
         }
+        .pdf-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .pdf-button:hover {
+            background-color: #45a049;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-<h1>Jira Task Graph for Issue: <?php echo $issueKey; ?></h1>
+<div class="header">
+    <h1>Jira Task Graph for Issue: <?php echo $issueKey; ?></h1>
+    <button class="pdf-button" onclick="downloadPDF()">Download as PDF</button>
+</div>
 
 <h2>Dependency Graph</h2>
-<img src="data:image/png;base64,<?php echo base64_encode(file_get_contents($imagePath)); ?>" alt="Jira Task Graph">
+<img src="data:image/png;base64,<?php echo base64_encode(file_get_contents($imagePath)); ?>" alt="Jira Task Graph" id="graphImage">
 
 <h2>Progress</h2>
 <div class="progress-bar">
@@ -185,6 +207,33 @@ $progress = $jiraGraphService->getProgress($issueKey);
             });
         }
     });
+
+    function downloadPDF() {
+        var { jsPDF } = window.jspdf;
+        var doc = new jsPDF('p', 'mm', 'a4');
+
+        html2canvas(document.body, { scale: 3 }).then(canvas => {
+            var imgData = canvas.toDataURL('image/png');
+            var imgWidth = 210;
+            var pageHeight = 295;
+            var imgHeight = canvas.height * imgWidth / canvas.width;
+            var heightLeft = imgHeight;
+
+            var position = 0;
+
+            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                doc.addPage();
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            doc.save('Jira_Task_Graph.pdf');
+        });
+    }
 </script>
 </body>
 </html>

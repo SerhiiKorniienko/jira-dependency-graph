@@ -30,6 +30,7 @@ class GraphGenerator implements GraphImageGenerator
 
     private function formatNode($issue): string
     {
+        $issueKey = $issue['key'];
         $issueTitle = $issue['fields']['summary'];
         $issueStatus = $issue['fields']['status']['name'] ?? 'No Status';
         $issueEstimation = isset($issue['fields']['timeoriginalestimate']) ? round($issue['fields']['timeoriginalestimate'] / 28800, 1) . 'd' : 'No Estimation';
@@ -50,7 +51,7 @@ class GraphGenerator implements GraphImageGenerator
 
         return "
 <table border='0' cellborder='1' cellspacing='0'>
-    <tr><td><b>$issueTitle</b></td></tr>
+    <tr><td><b>$issueKey $issueTitle</b></td></tr>
     <tr><td align='left'>Status: <font color='$statusColor'>$issueStatus</font></td></tr>
     <tr><td align='left'>Estimation: $issueEstimation</td></tr>
     <tr><td align='left'>Labels: $issueLabels</td></tr>
