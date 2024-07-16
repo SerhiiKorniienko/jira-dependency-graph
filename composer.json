@@ -1,0 +1,23 @@
+{
+    "name": "serhii.korniienko/jira-dependency-graph",
+    "type": "project",
+    "require": {
+        "vlucas/phpdotenv": "5.6.x-dev",
+        "graphp/graphviz": "1.x-dev",
+        "guzzlehttp/guzzle": "8.0.x-dev"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "11.3.x-dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "SerhiiKorniienko"
+        }
+    ],
+    "minimum-stability": "dev"
+}
