@@ -22,4 +22,16 @@ class JiraGraphService
         $graph = $this->graphGenerator->generateGraph($issues);
         return $this->graphGenerator->createImageFile($graph);
     }
+
+    public function getTaskOrder(string $issueKey): array
+    {
+        $issues = $this->jiraClient->getIssueData($issueKey);
+        return $this->graphGenerator->calculateTaskOrder($issues);
+    }
+
+    public function getProgress(string $issueKey): array
+    {
+        $issues = $this->jiraClient->getIssueData($issueKey);
+        return $this->graphGenerator->calculateProgress($issues);
+    }
 }

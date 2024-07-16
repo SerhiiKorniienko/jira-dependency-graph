@@ -92,4 +92,99 @@ class GraphGenerator implements GraphImageGenerator
             }
         }
     }
+
+    public function calculateTaskOrder(array $issues): array
+    {
+        $taskOrder = [];
+        $dependencies = [];
+
+        foreach ($issues as $issue) {
+            $issueKey = $issue['key'];
+            if (!isset($dependencies[$issueKey])) {
+                $dependencies[$issueKey] = [];
+            }
+
+            if (isset($issue['fields']['issuelinks'])) {
+                foreach ($issue['fields']['issuelinks'] as $link) {
+                    if (isset($link['outwardIssue'])) {
+                        $dependencyKey = $link['outwardIssue']['key'];
+                        $dependencies[$issueKey][] = $dependencyKey;
+                    }
+                }
+            }
+        }
+
+        $visited = [];
+        foreach ($issues as $issue) {
+            $this->topologicalSort($issue['key'], $dependencies, $visited, $taskOrder);
+        }
+
+        $formattedTasks = [];
+        foreach ($taskOrder as $task) {
+            $issue = array_filter($issues, fn($issue) => $issue['key'] === $task);
+            $formattedTasks[] = $task . ' - ' . ($issue[array_key_first($issue)]['fields']['summary'] ?? '') . ' (Blocks: ' . count($dependencies[$task] ?? 0) . ')';
+        }
+
+        return array_reverse($formattedTasks);
+    }
+
+    private function topologicalSort($node, &$dependencies, &$visited, &$taskOrder): void
+    {
+        if (isset($visited[$node])) {
+            return;
+        }
+
+        $visited[$node] = true;
+
+        foreach ($dependencies[$node] as $neighbor) {
+            $this->topologicalSort($neighbor, $dependencies, $visited, $taskOrder);
+        }
+
+        $taskOrder[] = $node;
+    }
+
+    public function calculateProgress(array $issues): array
+    {
+        $statusCounts = [
+            'done' => 0,
+            'inProgress' => 0,
+            'toDo' => 0,
+        ];
+        $estimationSums = [
+            'done' => 0,
+            'inProgress' => 0,
+            'toDo' => 0,
+        ];
+
+        foreach ($issues as $issue) {
+            $status = strtolower($issue['fields']['status']['name']);
+            $estimation = isset($issue['fields']['timeoriginalestimate']) ? round($issue['fields']['timeoriginalestimate'] / 28800, 1) : 0;
+
+            if (in_array($status, ['done', 'resolved'])) {
+                $statusCounts['done']++;
+                $estimationSums['done'] += $estimation;
+            } elseif ($status === 'in progress') {
+                $statusCounts['inProgress']++;
+                $estimationSums['inProgress'] += $estimation;
+            } elseif ($status === 'to do') {
+                $statusCounts['toDo']++;
+                $estimationSums['toDo'] += $estimation;
+            }
+        }
+
+        $totalTasks = array_sum($statusCounts);
+        $totalEstimation = array_sum($estimationSums);
+
+        return [
+            'statusCounts' => $statusCounts,
+            'estimationSums' => $estimationSums,
+            'totalTasks' => $totalTasks,
+            'totalEstimation' => $totalEstimation,
+            'progress' => [
+                'done' => $statusCounts['done'] / $totalTasks * 100,
+                'inProgress' => $statusCounts['inProgress'] / $totalTasks * 100,
+                'toDo' => $statusCounts['toDo'] / $totalTasks * 100,
+            ]
+        ];
+    }
 }
