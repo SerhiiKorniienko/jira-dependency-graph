@@ -17,7 +17,14 @@ $jiraGraphService = new JiraGraphService($jiraClient, $graphGenerator);
 
 $issueKey = $_GET['issue'] ?? 'JRA-42';
 
-$imagePath = $jiraGraphService->generateGraphImage($issueKey);
+if (isset($_GET['svg'])) {
+    $imagePath = $jiraGraphService->generateGraphImage($issueKey);
+    header('Content-Type: image/svg+xml');
+    echo file_get_contents($imagePath);
+    unlink($imagePath);
+    exit;
+}
+
 $taskOrder = $jiraGraphService->getTaskOrder($issueKey);
 $progress = $jiraGraphService->getProgress($issueKey);
 ?>
@@ -33,6 +40,7 @@ $progress = $jiraGraphService->getProgress($issueKey);
             margin: 0;
             padding: 20px;
             background-color: #f4f4f4;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
         }
         .header {
             display: flex;
@@ -42,12 +50,6 @@ $progress = $jiraGraphService->getProgress($issueKey);
         h1 {
             margin: 0;
             color: #333;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin-bottom: 20px;
         }
         .progress-bar {
             display: flex;
@@ -151,6 +153,8 @@ $progress = $jiraGraphService->getProgress($issueKey);
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg2pdf@1.1.1/src/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.5.0/dist/svg-pan-zoom.min.js"></script>
 </head>
 <body>
 <div class="header">
@@ -159,7 +163,9 @@ $progress = $jiraGraphService->getProgress($issueKey);
 </div>
 
 <h2>Dependency Graph</h2>
-<img src="data:image/png;base64,<?php echo base64_encode(file_get_contents($imagePath)); ?>" alt="Jira Task Graph" id="graphImage">
+<!--<div id="svg-container">-->
+    <object style="background-color: #b3b3b3; width: 100%; height: 550px;" id="graph-svg" type="image/svg+xml" data="index.php?issue=<?php echo $issueKey; ?>&svg=true"></object>
+<!--</div>-->
 
 <h2>Progress</h2>
 <div class="progress-bar">
@@ -190,8 +196,6 @@ $progress = $jiraGraphService->getProgress($issueKey);
     </ul>
 </div>
 
-<?php unlink($imagePath);?>
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         var coll = document.getElementsByClassName("collapsible");
@@ -206,12 +210,45 @@ $progress = $jiraGraphService->getProgress($issueKey);
                 }
             });
         }
+
+        // Initialize SVG Pan Zoom
+        var svgObject = document.getElementById('graph-svg');
+        svgObject.addEventListener('load', function() {
+            var svgDoc = svgObject.contentDocument;
+            var svgPanZoomInstance = svgPanZoom(svgDoc.querySelector('svg'), {
+                zoomEnabled: true,
+                controlIconsEnabled: true,
+                fit: true,
+                center: true,
+                minZoom: 0.5,
+                maxZoom: 10
+            });
+
+            // Fit SVG to the container width
+            svgPanZoomInstance.resize();
+            svgPanZoomInstance.fit();
+            svgPanZoomInstance.center();
+
+            // Prevent page scroll when zooming with mouse wheel
+            svgDoc.addEventListener('wheel', function(event) {
+                event.preventDefault();
+            }, { passive: false });
+        });
     });
 
     function downloadPDF() {
         var { jsPDF } = window.jspdf;
         var doc = new jsPDF('p', 'mm', 'a4');
 
+        // Add SVG to PDF
+        var svgElement = document.getElementById('graph-svg').contentDocument.querySelector('svg');
+        svg2pdf(svgElement, doc, {
+            xOffset: 10,
+            yOffset: 10,
+            width: 190 // Full width of A4 page
+        });
+
+        // Add the rest of the page content
         html2canvas(document.body, { scale: 3 }).then(canvas => {
             var imgData = canvas.toDataURL('image/png');
             var imgWidth = 210;

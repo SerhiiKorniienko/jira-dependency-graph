@@ -24,7 +24,8 @@ class GraphGenerator implements GraphImageGenerator
     public function createImageFile(Graph $graph): string
     {
         $graphviz = new GraphViz();
-        $graphviz->setFormat('png');
+        $graphviz->setFormat('svg');
+
         return $graphviz->createImageFile($graph);
     }
 
@@ -40,25 +41,23 @@ class GraphGenerator implements GraphImageGenerator
         $assignee = $issue['fields']['assignee']['displayName'] ?? 'Unassigned';
         $sprint = isset($issue['fields']['customfield_10017']) ? implode(', ', array_reverse(array_column($issue['fields']['customfield_10017'], 'name'))) : 'No Sprint';
 
-        $statusColor = 'orange';
-        if (in_array($issueStatus, ['Done', 'Resolved'])) {
-            $statusColor = 'green';
-        } elseif ($issueStatus === 'To Do') {
-            $statusColor = 'blue';
-        } elseif ($issueStatus === 'Blocked') {
-            $statusColor = 'black';
-        }
+        $statusColor = match ($issueStatus) {
+            'Done', 'Resolved' => 'green',
+            'To Do' => 'blue',
+            'Blocked' => 'black',
+            default => 'orange',
+        };
 
         return "
-<table border='0' cellborder='1' cellspacing='0'>
-    <tr><td><b>$issueKey $issueTitle</b></td></tr>
-    <tr><td align='left'>Status: <font color='$statusColor'>$issueStatus</font></td></tr>
-    <tr><td align='left'>Estimation: $issueEstimation</td></tr>
-    <tr><td align='left'>Labels: $issueLabels</td></tr>
-    <tr><td align='left'>Due Date: $dueDate</td></tr>
-    <tr><td align='left'>Assignee: $assignee</td></tr>
-    <tr><td align='left'>Sprint: $sprint</td></tr>
-</table>";
+        <table align='left' border='0' cellborder='0' cellspacing='5'>
+            <tr><td align='left' valign='middle'><b>$issueKey $issueTitle</b></td></tr>
+            <tr><td align='left' valign='middle'>Status: <font color='$statusColor'>$issueStatus</font></td></tr>
+            <tr><td align='left' valign='middle'>Estimation: $issueEstimation</td></tr>
+            <tr><td align='left' valign='middle'>Labels: $issueLabels</td></tr>
+            <tr><td align='left' valign='middle'>Due Date: $dueDate</td></tr>
+            <tr><td align='left' valign='middle'>Assignee: $assignee</td></tr>
+            <tr><td align='left' valign='middle'>Sprint: $sprint</td></tr>
+        </table>";
     }
 
     private function getOrCreateVertex(Graph $graph, $key, $label)
@@ -66,10 +65,17 @@ class GraphGenerator implements GraphImageGenerator
         if (!isset($this->vertices[$key])) {
             $vertex = $graph->createVertex();
             $vertex->setAttribute('id', $key);
-            $vertex->setAttribute('graphviz.shape', 'none');
+            $vertex->setAttribute('graphviz.shape', 'box');
             $vertex->setAttribute('graphviz.label_html', $label);
+            $vertex->setAttribute('graphviz.style', 'rounded');
+            $vertex->setAttribute('graphviz.color', '#333');
+            $vertex->setAttribute('graphviz.fillcolor', '#ffffff');
+            $vertex->setAttribute('graphviz.fontname', 'Arial');
+            $vertex->setAttribute('graphviz.fontsize', '10');
+
             $this->vertices[$key] = $vertex;
         }
+
         return $this->vertices[$key];
     }
 
@@ -146,16 +152,8 @@ class GraphGenerator implements GraphImageGenerator
 
     public function calculateProgress(array $issues): array
     {
-        $statusCounts = [
-            'done' => 0,
-            'inProgress' => 0,
-            'toDo' => 0,
-        ];
-        $estimationSums = [
-            'done' => 0,
-            'inProgress' => 0,
-            'toDo' => 0,
-        ];
+        $statusCounts = ['done' => 0, 'inProgress' => 0, 'toDo' => 0,];
+        $estimationSums = ['done' => 0, 'inProgress' => 0, 'toDo' => 0,];
 
         foreach ($issues as $issue) {
             $status = strtolower($issue['fields']['status']['name']);
@@ -164,10 +162,10 @@ class GraphGenerator implements GraphImageGenerator
             if (in_array($status, ['done', 'resolved'])) {
                 $statusCounts['done']++;
                 $estimationSums['done'] += $estimation;
-            } elseif ($status === 'in progress') {
+            } else if ($status === 'in progress') {
                 $statusCounts['inProgress']++;
                 $estimationSums['inProgress'] += $estimation;
-            } elseif ($status === 'to do') {
+            } else if ($status === 'to do') {
                 $statusCounts['toDo']++;
                 $estimationSums['toDo'] += $estimation;
             }
@@ -176,16 +174,6 @@ class GraphGenerator implements GraphImageGenerator
         $totalTasks = array_sum($statusCounts);
         $totalEstimation = array_sum($estimationSums);
 
-        return [
-            'statusCounts' => $statusCounts,
-            'estimationSums' => $estimationSums,
-            'totalTasks' => $totalTasks,
-            'totalEstimation' => $totalEstimation,
-            'progress' => [
-                'done' => $statusCounts['done'] / $totalTasks * 100,
-                'inProgress' => $statusCounts['inProgress'] / $totalTasks * 100,
-                'toDo' => $statusCounts['toDo'] / $totalTasks * 100,
-            ]
-        ];
+        return ['statusCounts' => $statusCounts, 'estimationSums' => $estimationSums, 'totalTasks' => $totalTasks, 'totalEstimation' => $totalEstimation, 'progress' => ['done' => $statusCounts['done'] / $totalTasks * 100, 'inProgress' => $statusCounts['inProgress'] / $totalTasks * 100, 'toDo' => $statusCounts['toDo'] / $totalTasks * 100,]];
     }
 }

@@ -20,6 +20,10 @@ class JiraGraphService
     {
         $issues = $this->jiraClient->getIssueData($issueKey);
         $graph = $this->graphGenerator->generateGraph($issues);
+//        echo "<pre>";
+//        print_r($graph);
+//        echo "</pre>";
+//        die();
         return $this->graphGenerator->createImageFile($graph);
     }
 
